@@ -1,0 +1,33 @@
+Lee Taylor
+Shell Assignment
+
+Consultations from Charles Antoine Malenfant and TA
+-------------------------------------
+All Baseline features implemented
+No known bugs
+*NOTE* Polaris went down shortly after implementing the final feature. Afterwards I added/removed some printf's and some comments. 99% confident everything still works
+-------------------------------------
+
+Features implemented:
+
+1. Prompt indicates CWD.
+
+2. Commands can be specified by relative or absolute pathnames. ie: ls
+
+3. Can redirect STDIN and STDOUT using < and >, respectively. ie: cat < foo > bar
+
+4. Can place commands in background using & and the end of the command line. Anything after the & is not read.
+
+5. Can display command history up to 30 prior commands
+
+6. Can repeat a previous command using !#. This number Can either be positive or negative, and will re run the command based on the order run.
+	ie: !3 runs the third command, !-1 runs the previous command
+	
+7. Supports the following built-in commands:
+	jobs - displays current background jobs
+	cd - changes working directory
+	history - displays previous commands
+	repeat (!) - repeats a command
+	exit - exits shell process. Will not exit if background processes are running
+	kill %# - kills process based on given pid
+	help - lists built in commands
