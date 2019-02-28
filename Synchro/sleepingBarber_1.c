@@ -15,20 +15,14 @@ int HAIRCUT_TIME = 4;
 
 extern int errno;
 
-int chair_availability;
+int haircuts;
 
 pthread_mutex_t count_lock;
 sem_t barber_sem;
+sem_t chair_sem;
 
 void* get_haircut(void* args){
-
-	int temp;
-	int* arg;
-	int id;
-
-	arg = (int*) args;
-	id = *arg;
-
+	int cust = (int) args;
 	/* Actual logic:
 	 * - Check (and wait) for an available barber
 	 * - Once a chair is occupied, get a haircut
@@ -40,6 +34,20 @@ void* get_haircut(void* args){
 	 * Bonus: do statistics to see e.g. average wait time, average
 	 * queued customers at any point, etc.
 	 */
+	sem_wait(&chair_sem);
+	printf("Customer %i is seated\n", cust);
+	sem_wait(&barber_sem);
+	printf("Customer %i has a barber\n", cust);
+	sem_post(&chair_sem);
+	printf("Customer %i relinquishes seat\n", cust);
+	usleep(HAIRCUT_TIME * 1000000);
+	printf("Customer %i haircut complete\n", cust);
+	pthread_mutex_lock(&count_lock);
+	haircuts++;
+	printf("(now %i total haircuts)\n", haircuts);
+	pthread_mutex_unlock(&count_lock);
+	sem_post(&barber_sem);
+	printf("Customer %i relinquishes barber\n", cust);
 
 	return 0;
 }
@@ -96,20 +104,32 @@ int main(int argc, char **argv)
 	printf("A haircut takes %i seconds.\n\n", HAIRCUT_TIME);
 
 	/* Initialize variables--counts, locks, and semaphors */
+	sem_init(&barber_sem, 0, NUM_BARBERS);
+	sem_init(&chair_sem, 0, NUM_CHAIRS);
+	pthread_mutex_init(&count_lock, NULL);
+	haircuts = 0;
 
 	printf("Beginning Simulation.\n\n");
 	srand((unsigned int) time(NULL));
 	for(iteration=0; iteration<NUM_CUSTOMERS; ++iteration){
 		/* Create a customer thread */
-		pthread_detach(threads[iteration]);  /* Indicate that the thread shouldn't hold resources */
-
+		pthread_create(&threads[iteration], NULL, get_haircut, (void *) iteration);
+		//pthread_detach(threads[iteration]);  /* Indicate that the thread shouldn't hold resources */
+		printf("Customer %i has arrived at barbershop\n", iteration);
 		/* Wait for a random amount of time */
+		usleep(rand()%(CUSTOMER_MAX_INTERVAL+1) * 1000000);
 	}
 
 	/* Check (and wait) for any remaining customers */
-
+	for(iteration=0; iteration<NUM_CUSTOMERS; ++iteration) {
+		pthread_join(threads[iteration], NULL);
+	}
 	/* Clean up */
+	sem_destroy(&barber_sem);
+	sem_destroy(&chair_sem);
+	pthread_mutex_destroy(&count_lock);
 	printf("\nBarbershop Problem Completed\n");
+	printf("Customers served today: %i\n", haircuts);
 	return(0);
 }
 

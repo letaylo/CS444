@@ -5,12 +5,13 @@ Week 07: Solving the producer/consumer problem
 
 Locking scheme description:
         
-
+I have one lock, which is locked initially. Then a while check is made for both producer and consumer on if the queue is full or empty, respectively. If true, the lock is released
+and the thread sleeps for a bit before reacquiring the lock. When the thread finally gets out of the check, the thread either produces or consumes and releases the lock.
 
         
-Name:
+Name: Lee Taylor
 
-Clarkson University  SP2013
+Clarkson University  SP2019
  **************************/ 
 
 /***** Includes *****/
@@ -47,8 +48,6 @@ typedef struct {
 
 	/*Declare the locks here */
 	HANDLE mutex;
-	HANDLE contEmpty;
-	HANDLE contFull;
 	
 	
 
@@ -161,9 +160,25 @@ void *producer (void *q)
 		#endif
 		
         #ifdef WINDOWS
-		WaitForSingleObject(fifo->contEmpty, TRUE, INFINITE);
-		WaitForSingleObject(fifo->mutex, TRUE, INFINITE);
+		WaitForSingleObject(fifo->mutex, INFINITE);
         #endif
+		
+		
+		while (fifo->full == 1) 
+		{
+			
+			/* sleep */
+			#ifdef UNIX
+				usleep ( PRODUCER_SLEEP_S * 1000000); 
+			#endif
+		
+			#ifdef WINDOWS
+				ReleaseMutex(fifo->mutex);
+				Sleep ( PRODUCER_SLEEP_S * 1000);	
+				WaitForSingleObject(fifo->mutex, INFINITE);
+			#endif
+		}
+		
 		
 		queueAdd (fifo, i+1);
 		printf ("producer: produced %d th.\n",i+1);
@@ -185,7 +200,6 @@ void *producer (void *q)
         
         #ifdef WINDOWS
 		ReleaseMutex(fifo->mutex);
-		ReleaseMutex(fifo->contEmpty);
         #endif
 	}
 
@@ -218,9 +232,24 @@ void *consumer (void *q)
 	
 	
     #ifdef WINDOWS
-	WaitForSingleObject(fifo->contFull, TRUE, INFINITE);
-	WaitForSingleObject(fifo->mutex, TRUE, INFINITE);
+	WaitForSingleObject(fifo->mutex, INFINITE);
     #endif
+	
+	while (fifo->empty == 1) 
+	{
+		#ifdef UNIX
+			usleep ( CONSUMER_SLEEP_S * 1000000); 
+			while (fifo->empty) 
+			{
+			}
+		#endif
+	
+		#ifdef WINDOWS
+			ReleaseMutex(fifo->mutex);
+			Sleep ( (rand()%LOOP) * 1000);	
+			WaitForSingleObject(fifo->mutex, INFINITE);
+		#endif
+	}
 	
 	/* sleep */
 	#ifdef UNIX
@@ -231,10 +260,9 @@ void *consumer (void *q)
 		Sleep ( CONSUMER_SLEEP_S * 1000);	
 	#endif
 
-    
 	queueDel (fifo, &d);
-	printf ("------------------------------------>consumer: recieved %d.\n", d);		
-
+	printf ("------------------------------------>consumer: recieved %d.\n", d);
+		
     #ifdef UNIX
 
     #endif
@@ -242,7 +270,6 @@ void *consumer (void *q)
 
     #ifdef WINDOWS
 	ReleaseMutex(fifo->mutex);
-	ReleaseMutex(fifo->contFull);
     #endif
 	
 
@@ -270,8 +297,6 @@ queue *queueInit (void)
 
     /*Initialize the locks here	*/
 	q->mutex = CreateMutex(NULL, FALSE, NULL);
-	q->contEmpty = CreateMutex(NULL, FALSE, NULL);
-	q->contFull = CreateMutex(NULL, FALSE, NULL);
 
 
 
@@ -285,8 +310,6 @@ void queueDelete (queue *q)
 
 	/* free the locks here*/
 	CloseHandle(q->mutex);
-	CloseHandle(q->contEmpty);
-	CloseHandle(q->contFull);
 	
 	/* free memory used for queue */
 	free (q);
